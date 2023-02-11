@@ -1,72 +1,117 @@
 '''
-***
-1) Implement a SimpleProblemSolvingAgent (SPSA) class that you can use to instantiate
-a SPSA object to find the best path between any two Romania cities.
+***************************************************************
+Group Assignment 01
+CS 534 - Team 6
+Spring 2023
 
-2) For the SPSA class, you need to develop and implement two informed searching algorithms:
-Greedy Best-First Search (i.e., best_first_graph_search (problem, f) and
-A* Search (i.e., astar_search(problem, h).
+D. Veilleux
 
-3) THe SPSA object will take a graph, i.e., the Romania map, as an input shown in Figure 3.1
-of your textbook and the city coordinates, and any two cities in the map to find the best
-path between them using both Greedy Best-First Search and A* Search algorithms, respectively.
-THe map file implementation should include the (romania_map) and (romania_map.locations) that
-I have shown you in my lecture slide and video as the reference and the starting point.
-
-4) Develop and implement a separate python App program called (RomaniaCityApp.py) using the
-given construct and do the following:
-(a) Your app will prompt and ask for a user to enter where the map file is located in your
- local directory and then read the (romania_map) and (romania_map.locations) in the map file.
- You can store your map file in any file type that you prefer only if your app can access the
- map file and read the (romania_map) and (romania_map.locations) in the map file.
- (b) Your app will then prompt and ask for a user to enter any two cities from the (romania_map).
- If these two cities are the same or either one of them or both of them cannot be found in the
- Romania map, please ask for the user to enter them again until the two cities are valid.
- (c)  Your app will then create a SPSA object from the (SimpleProblemSolvingAgent) class and
- search the best path between these two cities by using the Greedy Best-First Search and A*
- Search algorithms, respectively.  For each search alogorithm used, the output should include
- (i) the search method name, (ii) the total cost of the path, and the difference between these two
- search alogorithms.
- (d) At the end, your app will ask for theuser if they would like to find the best path between
- any two cities again.  If yes, repeat (b) and (c).  If no, terminate the program and then display
- "Thank You for Using Our App".
-
-
+***************************************************************
 '''
 
-class SimpleProblemSolvingAgentProgram:
-    '''
-    Section 3.1 & 3.2 - Textbook
-    '''
 
-    def __init__(self, initial_state=None):
-        '''State is an abstrace representation of the state of the world,
-        and seq is the list of actions required to get to a particular
-        state from the inital state(root).'''
-        self.state = initial_state
-        self.seq = []
+# Import Romania Map Data
+import romania_map_data
 
-    def __call__(self, percept):
-        '''Figure 3.1 - Formulate a goal and problem, them search for a
-        sequence of actions to solve it.'''
-        self.state = self.update_state(self.state, percept)
-        if not self.seq:
-            goal = self.formulate_goal(self.state)
-            problem = self.formulate_problem(self.state, goal)
-            self.seq = self.search(problem)
-            if not self.seq:
-                return None
-        return self.seq.pop(0)
+map_data = romania_map_data.romania_map
+map_locations = romania_map_data.romania_map.locations
 
-    def update_state(selfself, state, percept):
-        raise NotImplemented
+import heapq
 
-    def formulate_goal(selfself, state):
-        raise NotImplemented
+class SimpleProblemSolvingAgent:
+    """
+    SPSA class used to instantiate an object to find the best path
+    between any two cities.
+    To instantiate the class a Graph object is require argument
+    """
+    def __init__(self, graph, locations):
+        self.graph = graph
+        self.locations = locations
+        # self.visited_city = []
 
-    def formulate_problem(self, state, goal):
-        raise NotImplemented
+    def heuristic_func(self, start, end):
+        """
+        Add a function to estimate the distance from the current city
+        (queue) to the end city.
+        :param start:
+        :param end:
+        :return:
+        """
+        x1, y1 = self.locations[start]
+        x2, y2 = self.locations[end]
+        return ((x1-x2)**2 + (y1-y2)**2) ** 0.5
 
-    def search(selfself, problem):
-        raise NotImplemented
+    def search(self, start, end, strategy):
+        """
+        -Perform a search from the start city (initial state) to the
+        destination city (end state).
+        :param start: starting city
+        :param end: destination city
+        :param strategy: search algo.:
+            BFS - best first search
+            A* - astar search
+        :return: route from start to end if it exists, else -> None
+        """
+        if start == end:
+            return [start]
+        # self.visited_city = []
+        queue = [[start]]
+        if strategy.upper() == 'BFS':
+            return self.best_first_search(start, end)
+        elif strategy.upper() == 'ASTAR':
+            return self.astar(queue, end)
+        else:
+            return None
+
+    def best_first_search(self, queue, end):
+        # Create a priority queue for cities visited
+        queue = [(0, queue, [queue])]
+        # track the cities visited thru the search
+        visited = set()
+
+        while queue:
+            # Pop the city (node) with the lowest cost
+            (cost, node, path) = heapq.heappop(queue)
+            # Check is the city has already been visited
+            if node in visited:
+                continue
+            # Add the node to the visited set
+            visited.add(node)
+            # Check if the node is the destination city (end)
+            # if so return the route (path)
+            if node == end:
+                return path
+            # add the neighboring city of the current to the queue
+            for neighbor in self.graph.get(node).keys():
+                # Use the heuristic function to calculate distance (cost)
+                cost = self.heuristic_func(neighbor, end)
+                heapq.heappush(queue, (cost, neighbor, path + [neighbor]))
+        return None
+
+    def astar(self, queue, end):
+        pass
+
+
+
+### --- Testing Section --- ###
+
+start_city = "Arad"
+end_city = "Bucharest"
+search_strategy = "bfs"
+
+problem = SimpleProblemSolvingAgent(map_data, map_locations)
+route = problem.search(start_city, end_city, search_strategy)
+
+if route is not None:
+    print("Route found: ", route)
+else:
+    print("Route not found.")
+
+
+
+
+
+
+
+
 
