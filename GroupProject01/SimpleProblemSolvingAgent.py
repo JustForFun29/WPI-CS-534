@@ -12,6 +12,7 @@ D. Veilleux
 
 # Import Romania Map Data
 import romania_map_data
+from queue import PriorityQueue
 
 map_data = romania_map_data.romania_map
 map_locations = romania_map_data.romania_map.locations
@@ -59,7 +60,7 @@ class SimpleProblemSolvingAgent:
         if strategy.upper() == 'BFS':
             return self.best_first_search(start, end)
         elif strategy.upper() == 'ASTAR':
-            return self.astar(queue, end)
+            return self.astar_search(start, end)
         else:
             return None
 
@@ -88,8 +89,74 @@ class SimpleProblemSolvingAgent:
                 heapq.heappush(queue, (cost, neighbor, path + [neighbor]))
         return None
 
-    def astar(self, queue, end):
-        pass
+    def astar_search(self, start, end):
+        """
+        A* search is best-first graph search used in pathfinding
+        function used in A* is f(n) = g(n) + h(n)
+        where g(n) is distance from starting node, h(n) is distance from end node
+        :param start: starting city:
+        :param end: destination city:
+        :return: returns a Route from starting city to destination city
+        """
+        # Create priority queue for cities in the frontier (analogy of open set)
+        frontier = PriorityQueue()
+        # Add starting city as the first visited city
+        frontier.put(start, 0)
+        # Create two dictionaries to keep track of each cost/route
+        came_from: dict[Location, Optional[Location]] = {}
+        cost_so_far: dict[Location, float] = {}
+        # Create set for visited cities
+        visited = set();
+        # Append information for starting city
+        came_from[start] = None
+        cost_so_far[start] = 0
+
+
+        # Iterate through each city in the frontier
+        while frontier:
+            # Get the current city from the frontier
+            current: Location = frontier.get()
+
+            # If current city has already been visited
+            if current in visited:
+                continue
+
+            # If goal state is reached - return the route
+            if current == end:
+                break
+
+            # Iterate through all nodes available from current node
+            for next in self.graph.get(current).keys():
+                # F cost =        G cost              +  H cost
+                cost = self.heuristic_func(next, start) + self.heuristic_func(next, end)
+                new_cost = cost_so_far[current] + cost
+
+                # If calculated cost has only been calculated or if calculated cost is smaller than previous one
+                if next not in cost_so_far or new_cost < cost_so_far[next]:
+                    # Assign calculated cost to the neighbor node
+                    cost_so_far[next] = new_cost
+                    # Add priority for the next neighbor
+                    priority = new_cost + self.heuristic_func(next, end)
+                    # Add next node to the priority queue with F cost
+                    frontier.put(next, priority)
+                    # Add current node to the list of visited cities
+                    came_from[next] = current
+
+        return came_from, cost_so_far
+
+    def reconstruct_path(self, came_from, start, end):
+        """
+        Helper function
+        :param came_from:
+        :param start:
+        :param end:
+        :return:
+        """
+        reverse_path = [end]
+        while end != start:
+            end = came_from[end]
+            reverse_path.append(end)
+        return list(reversed(reverse_path))
 
 
 
@@ -97,10 +164,18 @@ class SimpleProblemSolvingAgent:
 
 start_city = "Arad"
 end_city = "Bucharest"
-search_strategy = "bfs"
+search_strategy = "astar"
 
 problem = SimpleProblemSolvingAgent(map_data, map_locations)
 route = problem.search(start_city, end_city, search_strategy)
+
+
+# TODO: Only for testing purposes, will delete it later
+if search_strategy == "astar":
+    (came_from, cost_so_far) = route
+    route = problem.reconstruct_path(came_from, start_city, end_city)
+
+
 
 if route is not None:
     print("Route found: ", route)
