@@ -169,7 +169,6 @@ search_strategy = "astar"
 problem = SimpleProblemSolvingAgent(map_data, map_locations)
 route = problem.search(start_city, end_city, search_strategy)
 
-
 # TODO: Only for testing purposes, will delete it later
 if search_strategy == "astar":
     (came_from, cost_so_far) = route
