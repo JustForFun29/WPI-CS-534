@@ -1,191 +1,146 @@
-'''
-***************************************************************
-Group Assignment 01
-CS 534 - Team 6
-Spring 2023
-
-D. Veilleux
-
-***************************************************************
-'''
-
-
-# Import Romania Map Data
-import romania_map_data
 from queue import PriorityQueue
 
-map_data = romania_map_data.romania_map
-map_locations = romania_map_data.romania_map.locations
-
-import heapq
-
 class SimpleProblemSolvingAgent:
-    """
-    SPSA class used to instantiate an object to find the best path
-    between any two cities.
-    To instantiate the class a Graph object is require argument
-    """
-    def __init__(self, graph, locations):
-        self.graph = graph
-        self.locations = locations
-        # self.visited_city = []
+    def __init__(self, graph_file_name,locations_file_name, initial_location, goal_location):
+        self.graph = self.import_graph(graph_file_name)
+        self.locations = self.import_locations(locations_file_name)
+        self.initial_location = initial_location
+        self.goal_location = goal_location
+        self.h = self.calculate_h()
 
-    def heuristic_func(self, start, end):
-        """
-        Add a function to estimate the distance from the current city
-        (queue) to the end city.
-        :param start:
-        :param end:
-        :return:
-        """
-        x1, y1 = self.locations[start]
-        x2, y2 = self.locations[end]
-        return ((x1-x2)**2 + (y1-y2)**2) ** 0.5
 
-    def search(self, start, end, strategy):
-        """
-        -Perform a search from the start city (initial state) to the
-        destination city (end state).
-        :param start: starting city
-        :param end: destination city
-        :param strategy: search algo.:
-            BFS - best first search
-            A* - astar search
-        :return: route from start to end if it exists, else -> None
-        """
-        if start == end:
-            return [start]
-        # self.visited_city = []
-        queue = [[start]]
-        if strategy.upper() == 'BFS':
-            return self.best_first_search(start, end)
-        elif strategy.upper() == 'ASTAR':
-            return self.astar_search(start, end)
+    def city_validator(self):
+        """Helper function for validating provided initial and goal locations, if they are in the graph
+        function will return boolean value (True) otherwise (False)"""
+        if (self.initial_location in self.graph) and (self.goal_location in self.graph) and (self.initial_location in self.locations) and (self.goal_location in self.locations):
+            return True
         else:
-            return None
+            return False
 
-    def best_first_search(self, queue, end):
-        # Create a priority queue for cities visited
-        queue = [(0, queue, [queue])]
-        # track the cities visited thru the search
-        visited = set()
 
-        while queue:
-            # Pop the city (node) with the lowest cost
-            (cost, node, path) = heapq.heappop(queue)
-            # Check is the city has already been visited
-            if node in visited:
-                continue
-            # Add the node to the visited set
-            visited.add(node)
-            # Check if the node is the destination city (end)
-            # if so return the route (path)
-            if node == end:
-                return path
-            # add the neighboring city of the current to the queue
-            for neighbor in self.graph.get(node).keys():
-                # Use the heuristic function to calculate distance (cost)
-                cost = self.heuristic_func(neighbor, end)
-                heapq.heappush(queue, (cost, neighbor, path + [neighbor]))
-        return None
+    def import_locations(self, file_name):
+        """Helper function for importing cities coordinates from given txt file.
+        The format of the txt file should be: 'City1 x_coordinate y_coordinate'"""
+        locations = {}
+        file = open(file_name)
+        for i in file.readlines():
+            node = i.split()
 
-    def astar_search(self, start, end):
+            locations.update({node[0]: (int(node[1]), int(node[2]))})
+
+        # print(locations)
+        return locations
+
+    def import_graph(self, graph_file_name):
+        """Helper function for importing graph from given txt file.
+        The format of the txt file should be: 'City1 City2 Distance'
+        And it should include all the distances from each city to neighbouring city, if that path exists"""
+        graph = {}
+        file = open(graph_file_name)
+        for i in file.readlines():
+            node = i.split()
+
+            if node[0] in graph and node[1] in graph:
+                c = graph.get(node[0])
+                c.append([node[1], node[2]])
+                graph.update({node[0]: c})
+
+                c = graph.get(node[1])
+                c.append([node[0], node[2]])
+                graph.update({node[1]: c})
+
+            elif node[0] in graph:
+                c = graph.get(node[0])
+                c.append([node[1], node[2]])
+                graph.update({node[0]: c})
+
+                graph[node[1]] = [[node[0], node[2]]]
+
+            elif node[1] in graph:
+                c = graph.get(node[1])
+                c.append([node[0], node[2]])
+                graph.update({node[1]: c})
+
+                graph[node[0]] = [[node[1], node[2]]]
+
+            else:
+                graph[node[0]] = [[node[1], node[2]]]
+                graph[node[1]] = [[node[0], node[2]]]
+
+        return graph
+
+
+    def calculate_h(self):
+        """"Function for calculating h(n) for each node within the graph
+        and storing it in the dictionary"""
+        heuristics = {}
+        x2, y2 = self.locations[self.goal_location]
+        for name, location in self.locations.items():
+            x1, y1 = location
+            current_h = int(((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5)
+            heuristics[name] = float(current_h)
+        # print(heuristics)
+        return heuristics
+
+
+    def best_first_graph_search(self):
         """
-        A* search is best-first graph search used in pathfinding
-        function used in A* is f(n) = g(n) + h(n)
-        where g(n) is distance from starting node, h(n) is distance from end node
-        :param start: starting city:
-        :param end: destination city:
-        :return: returns a Route from starting city to destination city
+        Performs search using - Best First Graph Search algorithm, that
+        uses nodes with the lowest h(n) values and finds the route, if there is one
+        :return: path and total cost
         """
-        # Create priority queue for cities in the frontier (analogy of open set)
         frontier = PriorityQueue()
-        # Add starting city as the first visited city
-        frontier.put(start, 0)
-        # Create two dictionaries to keep track of each cost/route
-        came_from: dict[Location, Optional[Location]] = {}
-        cost_so_far: dict[Location, float] = {}
-        # Create set for visited cities
-        visited = set();
-        # Append information for starting city
-        came_from[start] = None
-        cost_so_far[start] = 0
+        frontier.put((self.h[self.initial_location], self.initial_location))
+        path = []
+        cost = 0
 
-
-        # Iterate through each city in the frontier
         while frontier:
-            # Get the current city from the frontier
-            current: Location = frontier.get()
+            current_cost, current = frontier.get()
+            cost += current_cost
+            path.append(current)
 
-            # If current city has already been visited
-            if current in visited:
-                continue
 
-            # If goal state is reached - return the route
-            if current == end:
+            if current == self.goal_location:
                 break
 
-            # Iterate through all nodes available from current node
-            for next in self.graph.get(current).keys():
-                # F cost =        G cost              +  H cost
-                cost = self.heuristic_func(next, start) + self.heuristic_func(next, end)
-                new_cost = cost_so_far[current] + cost
+            frontier = PriorityQueue()
 
-                # If calculated cost has only been calculated or if calculated cost is smaller than previous one
-                if next not in cost_so_far or new_cost < cost_so_far[next]:
-                    # Assign calculated cost to the neighbor node
-                    cost_so_far[next] = new_cost
-                    # Add priority for the next neighbor
-                    priority = new_cost + self.heuristic_func(next, end)
-                    # Add next node to the priority queue with F cost
-                    frontier.put(next, priority)
-                    # Add current node to the list of visited cities
-                    came_from[next] = current
+            for i in self.graph[current]:
+                if i[0] not in path:
+                    frontier.put((self.h[i[0]], i[0]))
+                    # print(self.h[i[0]], i[0])
+        return path, cost
 
-        return came_from, cost_so_far
 
-    def reconstruct_path(self, came_from, start, end):
+    def astar_search(self):
         """
-        Helper function
-        :param came_from:
-        :param start:
-        :param end:
-        :return:
+        Performs search using - A* pathfinding algorithm, that uses
+        f cost function = G cost (distance) + H cost (heuristics) on each
+        possible route and calculates the route with lowest f cost amount
+        :return: path and total cost
         """
-        reverse_path = [end]
-        while end != start:
-            end = came_from[end]
-            reverse_path.append(end)
-        return list(reversed(reverse_path))
+        frontier = PriorityQueue()
+        distance = 0
+        path = []
+        cost = 0
 
+        frontier.put((self.h[self.initial_location] + distance, [self.initial_location, 0]))
 
+        while frontier:
+            current_cost, current = frontier.get()
+            cost += current_cost
 
-### --- Testing Section --- ###
+            path.append(current[0])
+            distance += int(current[1])
 
-start_city = "Arad"
-end_city = "Bucharest"
-search_strategy = "astar"
+            if current[0] == self.goal_location:
+                break
 
-problem = SimpleProblemSolvingAgent(map_data, map_locations)
-route = problem.search(start_city, end_city, search_strategy)
+            frontier = PriorityQueue()
 
-# TODO: Only for testing purposes, will delete it later
-if search_strategy == "astar":
-    (came_from, cost_so_far) = route
-    route = problem.reconstruct_path(came_from, start_city, end_city)
+            for i in self.graph[current[0]]:
+                if i[0] not in path:
+                    frontier.put((self.h[i[0]] + int(i[1]) + distance, i))
+                    # print(self.h[i[0]] + int(i[1]) + distance, i)
 
-
-
-if route is not None:
-    print("Route found: ", route)
-else:
-    print("Route not found.")
-
-
-
-
-
-
-
-
-
+        return path, cost
